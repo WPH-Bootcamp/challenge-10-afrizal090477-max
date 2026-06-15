@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge"; 
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import ProfileDropdown from "@/components/shared/navbar/ProfileDropDown"; 
-import { useGetCart, CartItem } from "@/lib/query/useCart"; 
+import { useGetCart } from "@/lib/query/useCart"; 
 
 interface NavDesktopProps {
   isScrolled: boolean;
@@ -17,22 +17,29 @@ interface NavDesktopProps {
   router: AppRouterInstance;
 }
 
+interface NavbarCartItem {
+  id: number;
+  quantity: number;
+}
+
+interface NavbarCartGroup {
+  id: number;
+  items: NavbarCartItem[];
+}
+
 export default function NavDesktop({ isScrolled, isLoggedIn, user, logout, router }: NavDesktopProps) {
   const pathname = usePathname();
   const isDetailPage = pathname?.includes("/resto");
-
   const { data: cartResponse } = useGetCart(); 
   const rawCartData = cartResponse?.data as Record<string, unknown> | undefined;
+  const apiCartGroups = rawCartData?.cart as NavbarCartGroup[] || [];
 
-  const cartItems: CartItem[] = Array.isArray(cartResponse?.data)
-    ? cartResponse.data
-    : Array.isArray(rawCartData?.cart)
-    ? (rawCartData.cart as CartItem[])
-    : Array.isArray(rawCartData?.items)
-    ? (rawCartData.items as CartItem[])
-    : [];
-
-  const totalCartBadge = cartItems.reduce((sum: number, item: CartItem) => sum + item.quantity, 0);
+  const totalCartBadge = apiCartGroups.reduce((totalGroupSum, group) => {
+    const groupItemsCount = Array.isArray(group.items)
+      ? group.items.reduce((itemSum, item) => itemSum + (item.quantity || 0), 0)
+      : 0;
+    return totalGroupSum + groupItemsCount;
+  }, 0);
 
   return (
     <div className={`w-full fixed top-0 left-0 right-0 z-50 transition-all duration-300 h-[80px] hidden md:flex items-center justify-between flex-shrink-0 ${
@@ -41,6 +48,7 @@ export default function NavDesktop({ isScrolled, isLoggedIn, user, logout, route
         : "bg-transparent"
     }`}>
       <div className="w-full max-w-[1440px] mx-auto h-full pl-[120px] pr-[120px] flex items-center justify-between flex-shrink-0">
+        
         <Link href="/" className="w-[149px] h-[42px] flex items-center gap-[15px] flex-shrink-0 select-none">
           <div className="relative w-[42px] h-[42px] flex-shrink-0">
             <Image
@@ -62,6 +70,7 @@ export default function NavDesktop({ isScrolled, isLoggedIn, user, logout, route
         <div className="flex items-center flex-shrink-0">
           {isLoggedIn ? (
             <div className="w-[193px] h-[48px] flex items-center gap-[24px] flex-shrink-0 justify-end">
+              
               <Link 
                 href="/cart" 
                 className="relative w-[34px] h-[34px] rounded-full bg-[#C12116] flex items-center justify-center text-white p-[6.67px] flex-shrink-0 hover:opacity-90 transition-opacity"
@@ -76,12 +85,14 @@ export default function NavDesktop({ isScrolled, isLoggedIn, user, logout, route
                     priority
                   />
                 </div>
+
                 {totalCartBadge > 0 && (
-                  <Badge className="absolute -top-[5px] -right-[5px] bg-[#C12116] hover:bg-[#C12116] text-white text-[12px] w-[20px] h-[20px] rounded-full flex items-center justify-center font-[700] p-0 border border-white leading-[23.33px] tracking-[-2%]">
+                  <Badge className="absolute -top-[5px] -right-[5px] bg-[#0A0D12] hover:bg-[#0A0D12] text-white text-[11px] w-[20px] h-[20px] rounded-full flex items-center justify-center font-[700] p-0 border border-white leading-none tracking-[-2%] animate-in zoom-in-50 duration-200">
                     {totalCartBadge}
                   </Badge>
                 )}
               </Link>
+              
               <div className="w-[137px] h-[48px] flex-shrink-0">
                 <ProfileDropdown isScrolled={isDetailPage ? true : isScrolled} user={user} logout={logout} router={router} />
               </div>

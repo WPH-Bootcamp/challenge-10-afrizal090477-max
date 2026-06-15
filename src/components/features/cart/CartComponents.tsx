@@ -71,9 +71,6 @@ export function CartItemCard({ item, onUpdateQuantity, isMutating }: CartItemCar
         </div>
         
         <div className="flex flex-col justify-center min-w-0">
-          <span className="text-[14px] font-[500] text-[#7E8494] tracking-[-3%] h-[30px] flex items-center leading-none mb-1">
-            Food Name
-          </span>
           <h4 className="text-[16px] font-[800] text-[#0A0D12] tracking-[-2%] leading-tight truncate">
             {foodName}
           </h4>

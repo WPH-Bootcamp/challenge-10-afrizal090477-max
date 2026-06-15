@@ -1,70 +1,47 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useGetCart } from "@/lib/query/useCart";
+import { useGetCart, useAddToCart } from "@/lib/query/useCart";
 import { ChevronRight } from "lucide-react";
 import { CartItemCard, CartSummary } from "@/components/features/cart/CartComponents";
 import { CartGroup } from "@/types/cart";
 
 export default function CartPage() {
   const router = useRouter();
+  
   const { data: response, isPending, isError } = useGetCart();
-  const [isMutating, setIsMutating] = useState(false);
+  const updateCartMutation = useAddToCart();
 
-  // 💡 STATE MINIMALIS: Cukup simpan object perubahan kuantitas item (id_menu -> kuantitas_baru)
-  const [qtyOverrides, setQtyOverrides] = useState<Record<number, number>>({});
-
-  // Parsing data mentah dari API TanStack Query secara aman tanpa any
   const rawResponse = response as Record<string, unknown> | undefined;
   const innerData = rawResponse?.data as Record<string, unknown> | undefined;
   const apiCartGroups = innerData?.cart as CartGroup[] || [];
 
-  // 💡 DERIVE STATE (Hitung Langsung saat Render): Gabungkan data API dengan override lokal lo bro
   const cartGroups = apiCartGroups.map((group) => {
-    const updatedItems = group.items.map((item) => {
-      const rawMenu = item.menu as unknown as Record<string, unknown>;
-      const menuId = Number(item.menu?.id || rawMenu?.id || 0);
-
-      // Jika menuId ini pernah diklik plus/minus, pakai kuantitas baru dari state lokal
-      if (Object.prototype.hasOwnProperty.call(qtyOverrides, menuId)) {
-        const targetQty = qtyOverrides[menuId];
-        const price = Number(item.menu?.price || (typeof rawMenu?.price === 'number' ? rawMenu.price : 0) || 0);
-        return {
-          ...item,
-          quantity: targetQty,
-          itemTotal: price * targetQty,
-        };
-      }
-      return item;
-    });
-
-    // Hitung ulang subtotal restoran secara real-time otomatis
-    const currentSubtotal = updatedItems.reduce((sum, item) => {
+    const currentSubtotal = group.items.reduce((sum, item) => {
       const price = Number(item.menu?.price || 0);
       return sum + price * item.quantity;
     }, 0);
 
     return {
       ...group,
-      items: updatedItems,
       subtotal: currentSubtotal,
     };
   });
 
-  // Handler interaksi tombol counter plus/minus
   const handleUpdateQuantity = (menuId: number, currentQty: number, action: 'increment' | 'decrement') => {
-    setIsMutating(true);
+    const parentGroup = apiCartGroups.find((group) => 
+      group.items.some((item) => Number(item.menu?.id) === menuId)
+    );
+    const restaurantId = Number(parentGroup?.restaurant?.id || 0);
+
     const targetQty = action === 'increment' ? currentQty + 1 : currentQty - 1;
 
-    // Simpan perubahan ke state override murni lokal
-    setQtyOverrides((prev) => ({
-      ...prev,
-      [menuId]: targetQty,
-    }));
-    
-    setIsMutating(false);
+    updateCartMutation.mutate({
+      restaurantId,
+      menuId,
+      quantity: targetQty, 
+    });
   };
 
   return (
@@ -96,7 +73,6 @@ export default function CartPage() {
           </div>
         )}
 
-        {/* CONTAINER GRUP LIST BOX */}
         {!isPending && !isError && cartGroups.length > 0 && (
           <div className="w-full flex flex-col gap-[20px]">
             {cartGroups.map((group) => {
@@ -110,7 +86,6 @@ export default function CartPage() {
                   className="w-full h-auto min-h-[388px] bg-white rounded-[16px] p-4 md:p-[20px] flex flex-col gap-[20px]"
                   style={{ boxShadow: "0px 0px 20px 0px #CBCACA40" }}
                 >
-                  {/* HEADER RESTORAN */}
                   <div 
                     onClick={() => router.push(`/resto/${restaurantId}`)} 
                     className="w-fit h-[32px] flex items-center gap-[8px] cursor-pointer group select-none"
@@ -129,19 +104,17 @@ export default function CartPage() {
                     <ChevronRight className="w-[24px] h-[24px] text-[#0A0D12]" style={{ strokeWidth: "2px" }} />
                   </div>
 
-                  {/* AREA LIST MAKANAN */}
                   <div className="flex flex-col w-full">
                     {group.items.map((item) => (
                       <CartItemCard 
                         key={item.id} 
                         item={item} 
                         onUpdateQuantity={handleUpdateQuantity}
-                        isMutating={isMutating}
+                        isMutating={updateCartMutation.isPending}
                       />
                     ))}
                   </div>
 
-                  {/* AREA RINGKASAN TOTAL */}
                   <CartSummary 
                     items={group.items} 
                     onCheckout={() => router.push(`/checkout?restaurantId=${restaurantId}`)} 

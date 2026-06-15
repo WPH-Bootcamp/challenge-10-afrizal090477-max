@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 
 import { loginUser, registerUser } from '@/lib/api/auth';
@@ -46,8 +46,26 @@ export const useRegister = (options?: AuthMutationOptions) => {
       if (axios.isAxiosError(error)) {
         errorMessage = error.response?.data?.message || errorMessage;
       }
-      
       options?.onError?.(errorMessage);
     },
+  });
+};
+
+export const useGetProfile = () => {
+  const token = useAuthStore((state) => state.token);
+
+  return useQuery({
+    queryKey: ['user-profile', token],
+    queryFn: async () => {
+      if (!token) return null;
+
+      const res = await axios.get('https://backend-restaurant-api.up.railway.app/auth/profile', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return res.data;
+    },
+    enabled: !!token, 
   });
 };

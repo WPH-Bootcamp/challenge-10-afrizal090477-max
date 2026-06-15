@@ -1,3 +1,5 @@
+"use client";
+
 import MenuCard from "@/components/features/resto/MenuCard";
 import type { MenuListProps, CartItem } from "@/types/resto";
 
@@ -7,6 +9,7 @@ export default function MenuList({
   isMutating,
   cartItems = [],
 }: MenuListProps) {
+
   const safeCartItems: CartItem[] = Array.isArray(cartItems)
     ? cartItems
     : [];
@@ -14,10 +17,11 @@ export default function MenuList({
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-[16px]">
       {menus.map((menu) => {
-        const currentQuantity =
-          safeCartItems.find(
-            (cartItem) => cartItem.menu.id === menu.id,
-          )?.quantity ?? 0;
+        const currentCartItem = safeCartItems.find((cartItem: CartItem) => {
+          return cartItem.menu?.id === menu.id;
+        });
+
+        const currentQuantity = currentCartItem ? currentCartItem.quantity : 0;
 
         return (
           <MenuCard

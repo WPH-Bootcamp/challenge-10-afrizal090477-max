@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useGetRestaurantDetail } from "@/lib/query/resto";
 import { useAddToCart, useGetCart } from "@/lib/query/useCart"; 
 import type { CartItem } from "@/types/resto";
@@ -16,29 +17,41 @@ import { Menu } from '../../../../types/resto';
 
 export default function RestoDetailPage() {
   const params = useParams();
+  const queryClient = useQueryClient();
   const id = Array.isArray(params?.id) ? params.id[0] : params?.id || "";
+  
   const { data: resto, isLoading, isError } = useGetRestaurantDetail(id);
+  
   const addToCartMutation = useAddToCart();
   
-  const { data: cartData } = useGetCart();
-  const activeCartItems: CartItem[] = Array.isArray(cartData?.data)
-  ? cartData.data
-  : [];
+  const { data: cartResponse } = useGetCart();
+  const rawCartData = cartResponse?.data as Record<string, unknown> | undefined;
+
+  const activeCartItems: CartItem[] = Array.isArray(cartResponse?.data)
+    ? cartResponse.data
+    : Array.isArray(rawCartData?.cart)
+    ? (rawCartData.cart as CartItem[])
+    : Array.isArray(rawCartData?.items)
+    ? (rawCartData.items as CartItem[])
+    : [];
 
   const [activeTab, setActiveTab] = useState<string>("all");
 
- const handleAddToCartAction = (
-  menuId: string,
-  quantity: number,
-) => {
-  if (!resto?.id) return;
+  useEffect(() => {
+    if (addToCartMutation.isSuccess) {
+      queryClient.invalidateQueries({ queryKey: ["cart"] });
+    }
+  }, [addToCartMutation.isSuccess, queryClient]);
 
-  addToCartMutation.mutate({
-    restaurantId: Number(resto.id),
-    menuId: Number(menuId),
-    quantity,
-  });
-};
+  const handleAddToCartAction = (menuId: string, quantity: number) => {
+    if (!resto?.id) return;
+
+    addToCartMutation.mutate({
+      restaurantId: Number(resto.id),
+      menuId: Number(menuId),
+      quantity: quantity,
+    });
+  };
 
   if (isLoading) {
     return (
@@ -57,31 +70,27 @@ export default function RestoDetailPage() {
   }
 
   const displayMenus =
-  resto.menus?.filter((menu: Menu) => {
-    if (activeTab === "all") return true;
-
-    return (
-      menu.type.toLowerCase() ===
-      activeTab.toLowerCase()
-    );
-  }) ?? [];
+    resto.menus?.filter((menu: Menu) => {
+      if (activeTab === "all") return true;
+      return menu.type.toLowerCase() === activeTab.toLowerCase();
+    }) ?? [];
 
   return (
     <div className="w-full max-w-[393px] md:max-w-[1440px] mx-auto bg-white px-[16px] md:px-[120px] flex flex-col gap-[16px] md:gap-[32px] pt-[80px] md:pt-[112px] pb-[40px] tracking-normal transition-all duration-200">
       <RestoHero resto={resto} />
+      
       <div className="w-full max-w-[361px] md:max-w-[1200px] flex flex-col gap-[16px] md:gap-[32px] flex-shrink-0">
-        
         <h2 className="text-[24px] md:text-[36px] font-[800] text-[#0A0D12] tracking-tight leading-none m-0 p-0">
           Menu
         </h2>
+        
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col gap-[16px] md:gap-[24px]">
-          
-          <TabsList className="w-full justify-start gap-[8px] md:gap-[12px] bg-transparent h-[40px] md:h-[46px] p-0 border-none flex-shrink-0 flex items-center">
+          <TabsList className="w-full justify-start gap-[8px] md:gap-[12px] bg-transparent h-[40px] md:h-[46px] p-0 border-none flex-shrink-0 flex items-center overflow-x-auto scrollbar-none">
             <TabsTrigger 
               value="all" 
               className={`h-[40px] md:h-[46px] px-[16px] py-[8px] rounded-full border transition-all duration-200 shadow-none outline-none focus-visible:ring-0 data-[state=active]:shadow-none data-[state=active]:bg-[#FFECEC] ${
                 activeTab === 'all' ? 'bg-[#FFECEC] border-[#C12116] text-[#C12116] font-[700]' : 'bg-transparent border-[#D5D7DA] text-[#0A0D12] font-[600]'
-              } text-[14px] md:text-[16px] tracking-[-2%] leading-none`}
+              } text-[14px] md:text-[16px] tracking-[-2%] leading-none cursor-pointer`}
             >
               All Menu
             </TabsTrigger>
@@ -90,7 +99,7 @@ export default function RestoDetailPage() {
               value="food" 
               className={`h-[40px] md:h-[46px] px-[16px] py-[8px] rounded-full border transition-all duration-200 shadow-none outline-none focus-visible:ring-0 data-[state=active]:shadow-none data-[state=active]:bg-[#FFECEC] ${
                 activeTab === 'food' ? 'bg-[#FFECEC] border-[#C12116] text-[#C12116] font-[700]' : 'bg-transparent border-[#D5D7DA] text-[#0A0D12] font-[600]'
-              } text-[14px] md:text-[16px] tracking-[-2%] leading-none`}
+              } text-[14px] md:text-[16px] tracking-[-2%] leading-none cursor-pointer`}
             >
               Food
             </TabsTrigger>
@@ -99,11 +108,12 @@ export default function RestoDetailPage() {
               value="drink" 
               className={`h-[40px] md:h-[46px] px-[16px] py-[8px] rounded-full border transition-all duration-200 shadow-none outline-none focus-visible:ring-0 data-[state=active]:shadow-none data-[state=active]:bg-[#FFECEC] ${
                 activeTab === 'drink' ? 'bg-[#FFECEC] border-[#C12116] text-[#C12116] font-[700]' : 'bg-transparent border-[#D5D7DA] text-[#0A0D12] font-[600]'
-              } text-[14px] md:text-[16px] tracking-[-2%] leading-none`}
+              } text-[14px] md:text-[16px] tracking-[-2%] leading-none cursor-pointer`}
             >
               Drink
             </TabsTrigger>
           </TabsList>
+          
           <TabsContent value={activeTab} className="m-0 outline-none w-full p-0 border-none">
             <MenuList 
               menus={displayMenus}
@@ -113,11 +123,12 @@ export default function RestoDetailPage() {
             />
           </TabsContent>
         </Tabs>
+        
         {resto.menus && resto.menus.length > 8 && (
           <div className="w-full flex justify-center mt-2 flex-shrink-0">
             <Button 
               variant="outline" 
-              className="w-[160px] h-[40px] md:h-[48px] rounded-full border-[#D5D7DA] text-[#0A0D12] font-[700] text-[14px] md:text-[16px] tracking-[-2%] bg-transparent hover:bg-slate-50 transition-colors flex items-center justify-center p-0"
+              className="w-[160px] h-[40px] md:h-[48px] rounded-full border-[#D5D7DA] text-[#0A0D12] font-[700] text-[14px] md:text-[16px] tracking-[-2%] bg-transparent hover:bg-slate-50 transition-colors flex items-center justify-center p-0 cursor-pointer"
             >
               Show More
             </Button>
@@ -126,6 +137,7 @@ export default function RestoDetailPage() {
       </div>
 
       <hr className="w-full max-w-[361px] md:max-w-[1200px] border-t border-[#D5D7DA] my-2 p-0 mx-auto" />
+      
       <div className="w-full max-w-[361px] md:max-w-[1200px] flex flex-col gap-[24px] flex-shrink-0">
         <div className="w-full flex flex-col gap-[8px] md:gap-[12px]">
           <h2 className="text-[24px] md:text-[36px] font-[800] text-[#0A0D12] tracking-tight m-0 p-0">

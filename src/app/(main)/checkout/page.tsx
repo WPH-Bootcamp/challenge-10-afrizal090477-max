@@ -1,36 +1,52 @@
 "use client";
 
-import React, { useState, Suspense } from "react"; 
+import React, { useState, Suspense } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useGetCart } from "@/lib/query/useCart";
+import { useGetProfile } from "@/lib/query/useAuth";
+import { useCreateCheckout } from "@/lib/query/useOrder";
+import { useAuthStore } from "@/store/auth.store";
 import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CartApiResponse, CartGroup } from "@/types/cart";
-import { BANKS } from "@/constants/bank"; 
-import PaymentSuccessModal from "@/components/features/checkout/PaymentSuccessModal"; 
-
+import { BANKS } from "@/constants/bank";
+import PaymentSuccessModal from "@/components/features/checkout/PaymentSuccessModal";
 
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const restaurantIdParam = Number(searchParams.get("restaurantId") || 0);
 
+  const token = useAuthStore((state) => state.token);
   const { data: response, isPending, isError } = useGetCart();
-  
+  const { data: profileResponse } = useGetProfile();
+  const { mutate: checkoutMutate, isPending: isCheckoutLoading } =
+    useCreateCheckout();
+
+  const activeAddress =
+    profileResponse?.data?.address || "Belum ada alamat pengiriman terpilih.";
+  const activePhone =
+    profileResponse?.data?.phoneNumber || "Belum ada nomor telepon terdaftar.";
+
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentOrderDate, setCurrentOrderDate] = useState<string>("");
 
   const cartResponse = response as CartApiResponse | undefined;
   const cartGroups: CartGroup[] = cartResponse?.data?.cart || [];
 
-  const activeGroup = cartGroups.find(
-    (g) => Number(g.restaurant?.id) === restaurantIdParam
-  ) || cartGroups[0];
+  const activeGroup =
+    cartGroups.find((g) => Number(g.restaurant?.id) === restaurantIdParam) ||
+    cartGroups[0];
 
   const foodItems = activeGroup?.items || [];
   const priceItems = Number(activeGroup?.subtotal || 0);
-  const totalItems = foodItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const totalItems = foodItems.reduce(
+    (sum, item) => sum + Number(item.quantity || 0),
+    0,
+  );
 
   const deliveryFee = priceItems > 0 ? 10000 : 0;
   const serviceFee = priceItems > 0 ? 1000 : 0;
@@ -40,18 +56,68 @@ function CheckoutContent() {
 
   const handleBuyProcess = () => {
     if (foodItems.length === 0) return;
-    
-    if (!selectedBank) {
-      alert("Silakan pilih metode pembayaran bank terlebih dahulu, bro!");
+
+    if (!token) {
+      alert("Sesi masuk Anda telah habis, silakan login kembali.");
       return;
     }
-    
-    setIsModalOpen(true);
+
+    if (!selectedBank) {
+      alert("Silakan pilih metode pembayaran bank terlebih dahulu.");
+      return;
+    }
+
+    const payload = {
+      restaurants: [
+        {
+          restaurantId:
+            restaurantIdParam || Number(activeGroup?.restaurant?.id || 0),
+          items: foodItems.map((item) => ({
+            menuId: Number(item.menu?.id || 0),
+            quantity: Number(item.quantity || 0),
+          })),
+        },
+      ],
+      deliveryAddress: activeAddress,
+      phone: activePhone,
+      paymentMethod: activeBankName,
+      notes: "Please process immediately",
+    };
+
+    checkoutMutate(payload, {
+      onSuccess: () => {
+        const now = new Date();
+        const formattedDate = now.toLocaleDateString("id-ID", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        });
+        const formattedTime = now
+          .toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          })
+          .replace(".", ":");
+
+        setCurrentOrderDate(`${formattedDate}, ${formattedTime}`);
+        setIsModalOpen(true);
+      },
+      onError: (error: unknown) => {
+        const apiError = error as {
+          response?: { data?: { message?: string } };
+        };
+        alert(
+          apiError.response?.data?.message ||
+            "Gagal memproses checkout ke database server.",
+        );
+      },
+    });
   };
 
   const handleCloseModalAndRedirect = () => {
     setIsModalOpen(false);
-    router.push("/"); 
+    router.push("/");
   };
 
   return (
@@ -69,15 +135,16 @@ function CheckoutContent() {
 
       {isError && (
         <div className="w-full p-6 text-center border border-red-200 bg-red-50 rounded-[16px]">
-          <p className="text-sm font-medium text-red-600">Gagal memuat detail data checkout pesanan.</p>
+          <p className="text-sm font-medium text-red-600">
+            Gagal memuat detail data checkout pesanan.
+          </p>
         </div>
       )}
 
       {!isPending && !isError && foodItems.length > 0 && (
         <div className="w-full flex flex-col lg:flex-row items-start gap-[20px]">
-          
           <div className="w-full lg:w-[590px] flex flex-col gap-[20px]">
-            <div 
+            <div
               className="w-full bg-white rounded-[16px] p-[20px] flex flex-col gap-[16px]"
               style={{ boxShadow: "0px 0px 20px 0px #CBCACA40" }}
             >
@@ -88,34 +155,41 @@ function CheckoutContent() {
                     Delivery Address
                   </span>
                 </div>
+
                 <p className="text-[15px] font-[500] text-[#0A0D12] tracking-[-3%] leading-relaxed mt-1">
-                  Jl. Sudirman No. 25, Jakarta Pusat, 10220
+                  {activeAddress}
                 </p>
                 <p className="text-[15px] font-[500] text-[#0A0D12] tracking-[-3%] leading-none mt-1">
-                  0812-3456-7890
+                  {activePhone}
                 </p>
               </div>
 
               <Button
+                type="button"
                 variant="outline"
-                className="w-[120px] h-[40px] rounded-[100px] border border-[#D5D7DA] text-[15px] font-[700] text-[#0A0D12] tracking-[-2%] bg-white hover:bg-slate-50 cursor-pointer"
+                asChild
+                className="w-[120px] h-[40px] rounded-[100px] border border-[#D5D7DA] text-[15px] font-[700] text-[#0A0D12] tracking-[-2%] bg-white hover:bg-slate-50 cursor-pointer flex items-center justify-center select-none"
               >
-                Change
+                <Link href="/profile/address">Change</Link>
               </Button>
             </div>
 
-            <div 
+            <div
               className="w-full bg-white rounded-[16px] p-[20px] flex flex-col gap-[20px]"
               style={{ boxShadow: "0px 0px 20px 0px #CBCACA40" }}
             >
               <div className="w-full flex items-center justify-between h-[40px]">
                 <div className="flex items-center gap-[8px] h-[32px]">
                   <div className="relative w-[32px] h-[32px] rounded-[4px] overflow-hidden bg-transparent">
-                    <Image 
-                      src={activeGroup?.restaurant?.logo || "/icons/Burger-Bang.png"} 
-                      alt="Resto Logo" 
-                      fill 
-                      className="object-contain" 
+                    <Image
+                      src={
+                        activeGroup?.restaurant?.logo ||
+                        "/icons/Burger-Bang.png"
+                      }
+                      alt="Resto Logo"
+                      fill
+                      sizes="32px"
+                      className="object-contain"
                     />
                   </div>
                   <span className="text-[18px] font-[700] text-[#0A0D12] tracking-[-3%]">
@@ -124,6 +198,7 @@ function CheckoutContent() {
                 </div>
 
                 <Button
+                  type="button"
                   variant="outline"
                   onClick={() => router.push(`/resto/${restaurantIdParam}`)}
                   className="w-[120px] h-[40px] rounded-[100px] border border-[#D5D7DA] text-[15px] font-[700] text-[#0A0D12] tracking-[-2%] bg-white hover:bg-slate-50 cursor-pointer flex items-center justify-center gap-1"
@@ -136,20 +211,21 @@ function CheckoutContent() {
                 {foodItems.map((item) => {
                   const price = Number(item.menu?.price || 0);
                   return (
-                    <div key={item.id} className="w-full py-4 first:pt-0 last:pb-0 flex items-center justify-between bg-white">
+                    <div
+                      key={item.id}
+                      className="w-full py-4 first:pt-0 last:pb-0 flex items-center justify-between bg-white"
+                    >
                       <div className="flex items-center gap-[17px] min-w-0">
                         <div className="relative w-[64px] h-[64px] rounded-[12px] overflow-hidden bg-slate-50 flex-shrink-0">
-                          <Image 
-                            src={item.menu?.image || "/icons/Burger-Bang.png"} 
-                            alt="food" 
-                            fill 
-                            className="object-cover" 
+                          <Image
+                            src={item.menu?.image || "/icons/Burger-Bang.png"}
+                            alt="food"
+                            fill
+                            sizes="64px"
+                            className="object-cover"
                           />
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-[14px] font-[500] text-[#7E8494] leading-none mb-1">
-                            Food Name
-                          </span>
                           <h4 className="text-[16px] font-[800] text-[#0A0D12] tracking-tight truncate max-w-[180px]">
                             {item.menu?.foodName}
                           </h4>
@@ -161,18 +237,17 @@ function CheckoutContent() {
                           x{item.quantity}
                         </span>
                         <span className="text-[16px] font-[800] text-[#0A0D12] min-w-[80px] text-right">
-                          Rp{price.toLocaleString('id-ID')}
+                          Rp{price.toLocaleString("id-ID")}
                         </span>
                       </div>
                     </div>
                   );
                 })}
               </div>
-
             </div>
           </div>
 
-          <div 
+          <div
             className="w-full lg:w-[390px] bg-white rounded-[16px] py-[20px] flex flex-col gap-[24px]"
             style={{ boxShadow: "0px 0px 20px 0px #CBCACA40" }}
           >
@@ -186,7 +261,7 @@ function CheckoutContent() {
                   const isCurrentSelected = selectedBank === bank.id;
 
                   return (
-                    <div 
+                    <div
                       key={bank.id}
                       onClick={() => setSelectedBank(bank.id)}
                       className="flex items-center justify-between w-full h-[40px] cursor-pointer group select-none"
@@ -197,6 +272,7 @@ function CheckoutContent() {
                             src={`/images/${bank.id.toLowerCase()}.svg`}
                             alt={`${bank.name} Logo`}
                             fill
+                            sizes="40px"
                             className="object-contain p-1"
                           />
                         </div>
@@ -206,20 +282,20 @@ function CheckoutContent() {
                       </div>
 
                       <div className="relative flex items-center justify-center flex-shrink-0">
-                        <input 
+                        <input
                           type="radio"
                           name="payment_bank"
                           value={bank.id}
                           checked={isCurrentSelected}
                           onChange={() => setSelectedBank(bank.id)}
-                          className="sr-only" 
+                          className="sr-only"
                         />
-                        
-                        <div 
+
+                        <div
                           className={`w-[24px] h-[24px] rounded-full flex items-center justify-center transition-all duration-200 ${
-                            isCurrentSelected 
-                              ? "bg-[#C12116]" 
-                              : "border-[1.6px] border-[#A4A7AE] bg-transparent" 
+                            isCurrentSelected
+                              ? "bg-[#C12116]"
+                              : "border-[1.6px] border-[#A4A7AE] bg-transparent"
                           }`}
                         >
                           {isCurrentSelected && (
@@ -227,7 +303,6 @@ function CheckoutContent() {
                           )}
                         </div>
                       </div>
-
                     </div>
                   );
                 })}
@@ -243,43 +318,59 @@ function CheckoutContent() {
 
               <div className="w-full flex flex-col gap-[12px] text-[15px]">
                 <div className="flex items-center justify-between h-[30px]">
-                  <span className="font-[500] text-[#7E8494] tracking-[-3%]">Price ({totalItems} items)</span>
-                  <span className="font-[700] text-[#0A0D12] tracking-[-2%]">Rp{priceItems.toLocaleString('id-ID')}</span>
+                  <span className="font-[500] text-[#7E8494] tracking-[-3%]">
+                    Price ({totalItems} items)
+                  </span>
+                  <span className="font-[700] text-[#0A0D12] tracking-[-2%]">
+                    Rp{priceItems.toLocaleString("id-ID")}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between h-[30px]">
-                  <span className="font-[500] text-[#7E8494] tracking-[-3%]">Delivery Fee</span>
-                  <span className="font-[700] text-[#0A0D12] tracking-[-2%]">Rp{deliveryFee.toLocaleString('id-ID')}</span>
+                  <span className="font-[500] text-[#7E8494] tracking-[-3%]">
+                    Delivery Fee
+                  </span>
+                  <span className="font-[700] text-[#0A0D12] tracking-[-2%]">
+                    Rp{deliveryFee.toLocaleString("id-ID")}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between h-[30px]">
-                  <span className="font-[500] text-[#7E8494] tracking-[-3%]">Service Fee</span>
-                  <span className="font-[700] text-[#0A0D12] tracking-[-2%]">Rp{serviceFee.toLocaleString('id-ID')}</span>
+                  <span className="font-[500] text-[#7E8494] tracking-[-3%]">
+                    Service Fee
+                  </span>
+                  <span className="font-[700] text-[#0A0D12] tracking-[-2%]">
+                    Rp{serviceFee.toLocaleString("id-ID")}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-between h-[32px] pt-2 border-t border-slate-100 mt-1">
-                  <span className="font-[400] text-[#0A0D12] text-[16px] tracking-[-2%]">Total</span>
-                  <span className="font-[800] text-[#0A0D12] text-[18px] tracking-[0%]">Rp{finalTotalBill.toLocaleString('id-ID')}</span>
+                  <span className="font-[400] text-[#0A0D12] text-[16px] tracking-[-2%]">
+                    Total
+                  </span>
+                  <span className="font-[800] text-[#0A0D12] text-[18px] tracking-[0%]">
+                    Rp{finalTotalBill.toLocaleString("id-ID")}
+                  </span>
                 </div>
               </div>
 
               <Button
+                type="button"
+                disabled={isCheckoutLoading}
                 onClick={handleBuyProcess}
-                className="w-full h-[48px] bg-[#C12116] hover:bg-[#a81c12] text-white font-[700] text-[15px] rounded-[100px] border-none mt-2 cursor-pointer flex items-center justify-center shadow-sm"
+                className="w-full h-[48px] bg-[#C12116] hover:bg-[#a81c12] text-white font-[700] text-[15px] rounded-[100px] border-none mt-2 cursor-pointer flex items-center justify-center shadow-sm disabled:opacity-50"
               >
-                Buy
+                {isCheckoutLoading ? "Processing order..." : "Buy"}
               </Button>
             </div>
-
           </div>
-
         </div>
       )}
 
-      <PaymentSuccessModal 
+      <PaymentSuccessModal
         isOpen={isModalOpen}
         onClose={handleCloseModalAndRedirect}
-        dateStr="25 August 2025, 15:51"
+        dateStr={currentOrderDate}
         bankName={activeBankName}
         priceItems={priceItems}
         totalItems={totalItems}
@@ -293,7 +384,7 @@ function CheckoutContent() {
 export default function CheckoutPage() {
   return (
     <div className="w-full block bg-transparent pt-[120px] md:pt-[140px] pb-20 min-h-screen">
-      <Suspense 
+      <Suspense
         fallback={
           <div className="w-full h-[400px] flex items-center justify-center">
             <div className="w-8 h-8 border-4 border-[#C12116] border-t-transparent rounded-full animate-spin" />

@@ -1,20 +1,33 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   images: {
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
-        pathname: '/**', // Mengizinkan semua akses folder gambar dari Cloudinary backend lo
+        pathname: '/**', 
       },
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
-        pathname: '/**', // Jaga-jaga untuk gambar fallback unspash kita
+        pathname: '/**', 
+      },
+      {
+        protocol: 'https',
+        hostname: 'logos-world.net',
+        pathname: '/**',
       }
     ],
+  },
+  
+  async rewrites() {
+    return [
+      {
+        source: '/api-backend/:path*',
+        destination: 'https://be-restaurant-production.up.railway.app/:path*',
+      },
+    ];
   },
 };
 
