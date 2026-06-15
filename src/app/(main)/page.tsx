@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
+import React, { Suspense } from "react"; 
 import dynamic from "next/dynamic";
 import HeroSection from "@/components/features/resto/HeroSection";
 import RestaurantList from "@/components/features/resto/RestaurantList";
@@ -16,7 +17,7 @@ const FilterBarDynamic = dynamic<FilterBarProps>(
   { ssr: false },
 );
 
-export default function HomePage() {
+function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -51,7 +52,6 @@ export default function HomePage() {
       case "All+Restaurant":
         return true;
       case "Nearby":
-        // Fallback dinamis jika data distance massal bernilai 0 tapi aslinya dekat
         return (restaurant.distance || 2.4) <= 5;
       case "Best Seller":
         return restaurant.star >= 4.5;
@@ -69,8 +69,6 @@ export default function HomePage() {
       const finalImage =
         item.images && item.images.length > 0 ? item.images[0] : item.logo;
       
-      // 💡 SMART FALLBACK: Jika jarak dari API massal bernilai 0 atau tidak terbaca, 
-      // berikan angka acak rasional (misal 2.4 atau sesuai id) agar kartu list tidak kosong 0 km
       let displayDistance = item.distance;
       if (!displayDistance || displayDistance === 0) {
         displayDistance = item.id === 6 ? 2.4 : Number(`2.${(Number(item.id) % 7) + 1}`);
@@ -81,7 +79,7 @@ export default function HomePage() {
         name: item.name || "Unnamed Restaurant",
         rating: item.star ? item.star.toFixed(1) : "0.0",
         location: item.place || "Lokasi tidak diketahui",
-        distance: `${displayDistance.toFixed(1)} km`, // 💡 Jarak dijamin keluar dinamis dan presisi
+        distance: `${displayDistance.toFixed(1)} km`,
         imageSrc:
           finalImage && finalImage !== "string" ? finalImage : undefined,
         fallbackText: item.name
@@ -126,30 +124,23 @@ export default function HomePage() {
 
   return (
     <div className="w-full flex flex-col pb-20 bg-white">
-      {/* 1. Hero Banner */}
       <HeroSection searchQuery={searchParam} onSearchChange={handleSearch} />
-
-      {/* 2. Container Pembungkus Relatif */}
       <div className="w-full max-w-[1200px] mx-auto px-4 md:px-0 relative">
-        {/* Kategori Atas */}
         <FilterBarDynamic
           categories={RestoCategories}
           activeCategory={categoryParam}
           onCategoryChange={handleCategoryChange}
         />
 
-        {/* 3. Layout Konten Bawah Bertingkat / Berdampingan */}
         <div
           className={`w-full flex flex-col ${
             isAllRestoActive ? "md:flex-row md:gap-[40px]" : ""
           } items-start mt-[32px]`}
         >
-          {/* Spacer Desktop Penahan Ruang Sidebar Berukuran 266px Sesuai Figma */}
           {isAllRestoActive && (
             <div className="hidden md:block w-[266px] h-[792px] flex-shrink-0" />
           )}
 
-          {/* Sisi Kanan: Judul & Grid Restoran (Lebar Sisa: 894px) */}
           <div className="flex-1 w-full flex flex-col gap-[20px]">
             <h2 className="w-full h-[42px] flex items-center text-[24px] font-[800] text-[#0A0D12] tracking-tight">
               {categoryParam || "All Restaurant"}
@@ -171,7 +162,6 @@ export default function HomePage() {
               <RestaurantList restaurants={displayedRestaurants} />
             )}
 
-            {/* Button Show More */}
             {!isUserSearching &&
               !isLoading &&
               !isError &&
@@ -184,5 +174,19 @@ export default function HomePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense 
+      fallback={
+        <div className="w-full min-h-screen flex items-center justify-center bg-white">
+          <div className="w-8 h-8 border-4 border-[#C12116] border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }
