@@ -15,17 +15,17 @@ export const RestoCategories: Category[] = [
 ];
 
 export const FooterExplore: FooterLink[] = [
-  { name: 'All Food', href: '#' },
-  { name: 'Nearby', href: '#' },
-  { name: 'Discount', href: '#' },
-  { name: 'Best Seller', href: '#' },
-  { name: 'Delivery', href: '#' },
-  { name: 'Lunch', href: '#' },
+  { name: 'All Food', href: 'All Restaurant' },
+  { name: 'Nearby', href: 'Nearby' },
+  { name: 'Discount', href: 'Discount' },
+  { name: 'Best Seller', href: 'Best Seller' },
+  { name: 'Delivery', href: 'Delivery' },
+  { name: 'Lunch', href: 'Lunch' },
 ];
 
 
 export const FooterHelp: FooterLink[] = [
-  { name: 'How to Order', href: '#' },
+  { name: 'How to Order', href: 'orders' },
   { name: 'Payment Methods', href: '#' },
   { name: 'Track My Order', href: '#' },
   { name: 'FAQ', href: '#' },
