@@ -142,10 +142,6 @@ function HomeContent() {
           )}
 
           <div className="flex-1 w-full flex flex-col gap-[20px]">
-            <h2 className="w-full h-[42px] flex items-center text-[24px] font-[800] text-[#0A0D12] tracking-tight">
-              {categoryParam || "All Restaurant"}
-            </h2>
-
             {isLoading ? (
               <div className="w-full flex justify-center items-center py-20">
                 <LoadingSpinner />
