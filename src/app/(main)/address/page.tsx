@@ -18,19 +18,14 @@ interface UpdateProfilePayload {
 export default function AddressPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  
-  // Mengambil data kredensial asli pengguna yang sedang aktif dari session login Anda
   const storeUser = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
 
-  // Menggunakan data asli akun Anda, tanpa fallback teks dummy sama sekali
   const currentUserName = storeUser?.name || "";
   const currentUserAvatar = storeUser?.avatar || "";
 
   const [address, setAddress] = useState<string>("");
   const [phoneNumber, setPhoneNumber] = useState<string>("");
-
-  // Proses mutasi data menuju server Swagger Railway asli Anda
   const updateAddressMutation = useMutation({
     mutationFn: async (payload: UpdateProfilePayload) => {
       const { data } = await api.put("/api/auth/profile", payload, {
@@ -59,7 +54,7 @@ export default function AddressPage() {
       return;
     }
 
-    // Mengirimkan payload utuh menggunakan data otentik akun login Anda agar lolos validasi server
+
     updateAddressMutation.mutate({
       name: currentUserName,
       avatar: currentUserAvatar,
@@ -95,7 +90,6 @@ export default function AddressPage() {
           >
             <form onSubmit={handleSaveAddress} className="w-full max-w-[600px] flex flex-col gap-[24px]">
               
-              {/* Bidang Isian: Nomor Telepon */}
               <div className="flex flex-col gap-2 w-full">
                 <label className="text-[14px] font-[700] text-[#0A0D12] tracking-[-2%]">
                   Phone Number
@@ -112,7 +106,6 @@ export default function AddressPage() {
                 </div>
               </div>
 
-              {/* Bidang Isian: Alamat Lengkap */}
               <div className="flex flex-col gap-2 w-full">
                 <label className="text-[14px] font-[700] text-[#0A0D12] tracking-[-2%]">
                   Full Address
@@ -128,7 +121,6 @@ export default function AddressPage() {
                 </div>
               </div>
 
-              {/* Tombol Simpan */}
               <button
                 type="submit"
                 disabled={updateAddressMutation.isPending}
