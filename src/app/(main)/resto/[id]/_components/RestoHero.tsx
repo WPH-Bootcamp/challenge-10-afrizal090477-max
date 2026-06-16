@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { Star, MapPin, Bike } from "lucide-react";
 import type { RestaurantDetail } from "@/types/resto";
-
 interface RestoHeroProps {
   resto: RestaurantDetail;
 }

@@ -8,7 +8,6 @@ export default function MainLayout({
 }) {
   return (
     <div className="w-full max-w-[393px] md:max-w-[1440px] mx-auto min-h-screen bg-white flex flex-col overflow-x-hidden">
-      {/* Navbar Global */}
       <Navbar />
 
       <main className="w-full flex-grow">

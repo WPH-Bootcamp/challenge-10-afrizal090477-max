@@ -37,3 +37,61 @@ export interface CheckoutPayload {
   paymentMethod: string;
   notes?: string;
 }
+
+export interface RestaurantItem {
+  menuId: number;
+  menuName: string;
+  image: string;
+  quantity: number;
+  price: number;
+  itemTotal: number;
+}
+
+export interface RestaurantInfo {
+  id: number;
+  name: string;
+  logo: string;
+}
+
+export interface RestaurantOrder {
+  restaurant: RestaurantInfo;
+  items: RestaurantItem[];
+  subtotal: number;
+}
+
+export interface ApiOrder {
+  id: number;
+  transactionId: string;
+  status: string;
+
+  pricing: {
+    subtotal: number;
+    serviceFee: number;
+    deliveryFee: number;
+    totalPrice: number;
+  };
+
+  restaurants: RestaurantOrder[];
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrderData {
+  id: number;
+
+  transactionId: string;
+  restaurantId: number;
+
+  restaurantName?: string;
+  restaurantLogo?: string;
+
+  foodName?: string;
+  foodImage?: string;
+
+  quantity?: number;
+  price?: number;
+
+  totalPrice?: number;
+  status?: string;
+}

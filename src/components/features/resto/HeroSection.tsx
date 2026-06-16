@@ -18,7 +18,6 @@ export default function HeroSection({ searchQuery, onSearchChange }: HeroSection
     const timer = setTimeout(() => {
       onSearchChange(localSearch);
     }, 500);
-
     return () => clearTimeout(timer);
   }, [localSearch, onSearchChange]);
 
@@ -28,6 +27,7 @@ export default function HeroSection({ searchQuery, onSearchChange }: HeroSection
         src="/images/Hero-Burger.svg"
         alt="Explore Culinary Experiences Banner"
         fill
+        sizes="(max-width: 1200px) 100vw, 1200px"
         priority
         className="object-cover"
       />

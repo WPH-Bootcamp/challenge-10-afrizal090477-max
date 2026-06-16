@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import React, { Suspense } from "react"; 
+import React, { Suspense } from "react";
 import dynamic from "next/dynamic";
 import HeroSection from "@/components/features/resto/HeroSection";
 import RestaurantList from "@/components/features/resto/RestaurantList";
@@ -12,6 +12,16 @@ import { useGetRestaurants, useSearchRestaurants } from "@/lib/query/resto";
 import { RestoCategories } from "@/constants";
 import type { RestaurantUI, Restaurant, FilterBarProps } from "@/types/resto";
 
+interface RestaurantWithDiscount extends Omit<Restaurant, "logo"> {
+  discountText?: string;
+  discountPercentage?: number;
+  isDiscount?: boolean;
+  isDelivery?: boolean;
+  deliveryFee?: number;
+  deliveryTime?: string;
+  logo?: string;
+}
+
 const FilterBarDynamic = dynamic<FilterBarProps>(
   () => import("@/components/features/resto/FilterBar"),
   { ssr: false },
@@ -20,7 +30,6 @@ const FilterBarDynamic = dynamic<FilterBarProps>(
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
   const categoryParam = searchParams.get("category") || "";
   const searchParam = searchParams.get("search") || "";
   const limitParam = parseInt(searchParams.get("limit") || "12", 10);
@@ -38,41 +47,54 @@ function HomeContent() {
     isError: isErrorSearch,
   } = useSearchRestaurants(searchParam);
 
-  const rawRestaurants: Restaurant[] = isUserSearching
-    ? searchRestaurantsData
-    : defaultRestaurants;
-
+  const rawRestaurants = (
+    isUserSearching ? searchRestaurantsData : defaultRestaurants
+  ) as RestaurantWithDiscount[];
   const isLoading = isUserSearching ? isLoadingSearch : isLoadingDefault;
   const isError = isUserSearching ? isErrorSearch : isErrorDefault;
-
-  const filteredRestaurants = rawRestaurants.filter((restaurant) => {
+  
+  const filteredRestaurants = rawRestaurants.filter((restaurant: RestaurantWithDiscount) => {
     if (!categoryParam) return true;
-    switch (categoryParam) {
-      case "All Restaurant":
-      case "All+Restaurant":
+    
+    const normalizedCategory = categoryParam.toLowerCase().replace("+", " ");
+
+    switch (normalizedCategory) {
+      case "all restaurant":
         return true;
-      case "Nearby":
-        return (restaurant.distance || 2.4) <= 5;
-      case "Best Seller":
-        return restaurant.star >= 4.5;
-      case "Discount":
-      case "Delivery":
-      case "Lunch":
-        return true;
+      case "nearby":
+        const checkDistance = restaurant.distance !== undefined 
+          ? parseFloat(String(restaurant.distance)) 
+          : (Number(restaurant.id) === 6 ? 2.4 : Number(`2.${(Number(restaurant.id) % 7) + 1}`));
+        return checkDistance <= 5;
+      case "best seller":
+        return restaurant.star ? restaurant.star >= 4.5 : false;
+      case "discount":
+        return !!restaurant.discountText || !!restaurant.discountPercentage || restaurant.isDiscount === true;
+      case "delivery":
+        return restaurant.isDelivery === true;
+      case "lunch":
+        return false;
       default:
         return true;
     }
   });
 
-  const displayedRestaurants: RestaurantUI[] = filteredRestaurants.map(
-    (item) => {
+  const displayedRestaurants = filteredRestaurants.map(
+    (item: RestaurantWithDiscount): RestaurantUI & { discountText?: string; deliveryInfo?: string } => {
       const finalImage =
         item.images && item.images.length > 0 ? item.images[0] : item.logo;
-      
+
       let displayDistance = item.distance;
       if (!displayDistance || displayDistance === 0) {
-        displayDistance = item.id === 6 ? 2.4 : Number(`2.${(Number(item.id) % 7) + 1}`);
+        displayDistance =
+          item.id === 6 ? 2.4 : Number(`2.${(Number(item.id) % 7) + 1}`);
       }
+
+      const rawDiscount = item.discountText || (item.discountPercentage ? `Diskon ${item.discountPercentage}%` : "");
+
+      const rawDelivery = item.deliveryFee !== undefined 
+        ? (item.deliveryFee === 0 ? "Gratis Ongkir" : `Ongkir Rp ${item.deliveryFee.toLocaleString('id-ID')}`)
+        : (item.deliveryTime ? `${item.deliveryTime}` : "");
 
       return {
         id: String(item.id),
@@ -85,10 +107,11 @@ function HomeContent() {
         fallbackText: item.name
           ? item.name.substring(0, 2).toUpperCase()
           : "RE",
-      };
+        discountText: rawDiscount || undefined, 
+        deliveryInfo: rawDelivery || undefined
+      } as RestaurantUI & { discountText?: string; deliveryInfo?: string };
     },
   );
-
   const handleSearch = (query: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (query) {
@@ -121,6 +144,9 @@ function HomeContent() {
 
   const isAllRestoActive =
     categoryParam === "All Restaurant" || categoryParam === "All+Restaurant";
+
+  const isNearbyActive = categoryParam.toLowerCase() === "nearby";
+  const isDiscountActive = categoryParam.toLowerCase() === "discount";
 
   return (
     <div className="w-full flex flex-col pb-20 bg-white">
@@ -155,7 +181,11 @@ function HomeContent() {
                 <EmptyState message="Ups! Tidak ada restoran yang cocok dengan kriteria pencarianmu." />
               </div>
             ) : (
-              <RestaurantList restaurants={displayedRestaurants} />
+              <RestaurantList
+                restaurants={displayedRestaurants}
+                showDistanceOnly={isNearbyActive}
+                showDiscountOnly={isDiscountActive}
+              />
             )}
 
             {!isUserSearching &&
@@ -175,7 +205,7 @@ function HomeContent() {
 
 export default function HomePage() {
   return (
-    <Suspense 
+    <Suspense
       fallback={
         <div className="w-full min-h-screen flex items-center justify-center bg-white">
           <div className="w-8 h-8 border-4 border-[#C12116] border-t-transparent rounded-full animate-spin" />

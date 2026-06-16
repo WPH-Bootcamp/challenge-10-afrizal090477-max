@@ -2,11 +2,10 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { FooterExplore, FooterHelp } from '@/constants';
 
 export default function Footer() {
   return (
-    <footer className="w-full h-auto bg-[#0A0D12] border-t border-[#252B37] px-[16px] py-[40px] md:px-[120px] md:py-[80px] md:h-[490px] flex flex-col md:flex-row md:justify-between gap-[24px] md:gap-0">
+    <footer className="w-full h-auto bg-[#0A0D12] border-t border-[#252B37] px-[16px] py-[40px] md:px-[120px] md:py-[80px] md:h-[490px] flex flex-col md:flex-row md:justify-between gap-[24px] md:gap-0 select-none">
       <div className="w-full max-w-[361px] md:max-w-[380px] flex flex-col gap-[16px] md:gap-[40px]"> 
         <div className="flex items-center gap-[15px] w-[149px] h-[42px]">
           <div className="w-[42px] h-[42px] relative flex-shrink-0">
@@ -89,22 +88,27 @@ export default function Footer() {
       </div>
 
       <div className="w-full md:w-auto flex flex-row gap-[16px] md:gap-[120px]">
+        {/* KOLOM EXPLORE */}
         <div className="w-[172.5px] md:w-[200px] flex flex-col gap-[16px] md:gap-[20px]">
           <h3 className="text-[14px] md:text-[16px] font-[800] text-[#FDFDFD] tracking-wider uppercase opacity-50">
             Explore
           </h3>
           <ul className="flex flex-col gap-[12px] md:gap-[16px]">
-            {FooterExplore.map((link) => (
-              <li key={link.name}>
-                <Link 
-                  href={`/?category=${encodeURIComponent(link.name)}`}
-                  scroll={false} 
-                  className="text-[14px] md:text-[16px] font-[500] text-[#FDFDFD] opacity-80 hover:opacity-100 hover:text-orange-500 transition-colors duration-200"
-                >
-                  {link.name}
-                </Link>
-              </li>
-            ))}
+            {['All Food', 'Nearby', 'Discount', 'Best Seller', 'Delivery', 'Lunch'].map((name) => {
+              const paramValue = name === "All Food" ? "All Restaurant" : name;
+              
+              return (
+                <li key={name}>
+                  <Link 
+                    href={`/?category=${encodeURIComponent(paramValue)}`}
+                    scroll={true} 
+                    className="text-[14px] md:text-[16px] font-[500] text-[#FDFDFD] opacity-80 hover:opacity-100 hover:text-[#C12116] transition-colors duration-200"
+                  >
+                    {name}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
 
@@ -113,17 +117,25 @@ export default function Footer() {
             Help
           </h3>
           <ul className="flex flex-col gap-[12px] md:gap-[16px]">
-            {FooterHelp.map((link) => (
-              <li key={link.name}>
-                <Link href={link.href} className="text-[14px] md:text-[16px] font-[500] text-[#FDFDFD] opacity-80 hover:opacity-100 hover:text-orange-500 transition-colors duration-200">
-                  {link.name}
-                </Link>
-              </li>
-            ))}
+            {['How to Order', 'Payment Methods', 'Track My Order', 'FAQ', 'Contact Us'].map((name) => {
+              const currentSlug = name === 'Contact Us' 
+                ? '/contact-us' 
+                : `/help/${name.toLowerCase().replace(/\s+/g, '-')}`;
+                
+              return (
+                <li key={name}>
+                  <Link 
+                    href={currentSlug} 
+                    className="text-[14px] md:text-[16px] font-[500] text-[#FDFDFD] opacity-80 hover:opacity-100 hover:text-[#C12116] transition-colors duration-200"
+                  >
+                    {name}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </div>
-
     </footer>
   );
 }

@@ -2,8 +2,8 @@ export interface UserProfile {
   id: number;
   name: string;
   email: string;
-  phone: string;         // 💡 Sesuai data real backend lo
-  avatar: string | null; // 💡 Sesuai data real backend lo
+  phone: string;       
+  avatar: string | null; 
   latitude: number | null;
   longitude: number | null;
   createdAt: string;

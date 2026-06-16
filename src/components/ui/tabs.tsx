@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
-import * as TabsPrimitive from "@radix-ui/react-tabs" // ✔️ Pastikan path import radix aman sesuai package.json lu
+import * as React from "react";
+import * as TabsPrimitive from "@radix-ui/react-tabs";
+import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 function Tabs({
   className,
@@ -21,15 +21,14 @@ function Tabs({
       )}
       {...props}
     />
-  )
+  );
 }
 
 const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit items-center justify-center p-0 text-muted-foreground group-data-[orientation=horizontal]/tabs:h-auto group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col",
+  "inline-flex w-fit items-center justify-center text-muted-foreground",
   {
     variants: {
       variant: {
-        // 🟢 FIX TOTAL: Buang bg-muted abu-abu bawaan agar di page detail bisa di-override transparan bersih
         default: "bg-transparent",
         line: "gap-1 bg-transparent",
       },
@@ -38,11 +37,11 @@ const tabsListVariants = cva(
       variant: "default",
     },
   }
-)
+);
 
 function TabsList({
   className,
-  variant = "default",
+  variant,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.List> &
   VariantProps<typeof tabsListVariants>) {
@@ -53,7 +52,7 @@ function TabsList({
       className={cn(tabsListVariants({ variant }), className)}
       {...props}
     />
-  )
+  );
 }
 
 function TabsTrigger({
@@ -64,12 +63,22 @@ function TabsTrigger({
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "relative inline-flex items-center justify-center gap-1.5 border border-transparent text-sm font-medium whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        `
+        inline-flex
+        items-center
+        justify-center
+        whitespace-nowrap
+        rounded-full
+        transition-all
+        focus-visible:outline-none
+        disabled:pointer-events-none
+        disabled:opacity-50
+        `,
         className
       )}
       {...props}
     />
-  )
+  );
 }
 
 function TabsContent({
@@ -79,10 +88,19 @@ function TabsContent({
   return (
     <TabsPrimitive.Content
       data-slot="tabs-content"
-      className={cn("flex-1 text-sm outline-none", className)}
+      className={cn(
+        "flex-1 outline-none",
+        className
+      )}
       {...props}
     />
-  )
+  );
 }
 
-export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants }
+export {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+  tabsListVariants,
+};

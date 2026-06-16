@@ -26,21 +26,21 @@ function CheckoutContent() {
     useCreateCheckout();
 
   const activeAddress =
-    profileResponse?.data?.address || "Belum ada alamat pengiriman terpilih.";
-  const activePhone =
-    profileResponse?.data?.phoneNumber || "Belum ada nomor telepon terdaftar.";
+  "Jl. Sudirman No. 25, Jakarta Pusat, 10220";
+
+const activePhone =
+  profileResponse?.phone ??
+  "0812-3456-7890";
 
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentOrderDate, setCurrentOrderDate] = useState<string>("");
-
   const cartResponse = response as CartApiResponse | undefined;
   const cartGroups: CartGroup[] = cartResponse?.data?.cart || [];
 
   const activeGroup =
     cartGroups.find((g) => Number(g.restaurant?.id) === restaurantIdParam) ||
     cartGroups[0];
-
   const foodItems = activeGroup?.items || [];
   const priceItems = Number(activeGroup?.subtotal || 0);
   const totalItems = foodItems.reduce(
@@ -51,17 +51,14 @@ function CheckoutContent() {
   const deliveryFee = priceItems > 0 ? 10000 : 0;
   const serviceFee = priceItems > 0 ? 1000 : 0;
   const finalTotalBill = priceItems + deliveryFee + serviceFee;
-
   const activeBankName = BANKS.find((b) => b.id === selectedBank)?.name || "";
 
   const handleBuyProcess = () => {
     if (foodItems.length === 0) return;
-
     if (!token) {
       alert("Sesi masuk Anda telah habis, silakan login kembali.");
       return;
     }
-
     if (!selectedBank) {
       alert("Silakan pilih metode pembayaran bank terlebih dahulu.");
       return;

@@ -23,7 +23,6 @@ const quantity =
   ) => {
     e.preventDefault();
     e.stopPropagation();
-
     setLocalQuantity(1);
     onAddToCart(String(id), 1);
   };

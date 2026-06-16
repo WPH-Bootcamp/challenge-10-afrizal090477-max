@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AxiosError } from 'axios';
-
 import { loginUser } from '@/lib/api/auth';
 import { useAuthStore } from '@/store/auth.store';
 import type { LoginInput } from '@/lib/validations/auth.schema';

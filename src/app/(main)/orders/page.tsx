@@ -1,36 +1,23 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronLeft, Search } from "lucide-react";
 import { UserSidebar } from "@/components/features/orders/UserSidebar";
 import { OrderCard } from "@/components/features/orders/OrderCard";
 import LoadingSpinner from "@/components/shared/LoadingSpinner";
-import { Search, ChevronLeft } from "lucide-react";
-import { useGetOrders } from "@/lib/query/useOrder";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useGetOrders } from "@/lib/query/useOrder";
 import { useGetProfile } from "@/lib/query/useAuth";
 import { useAuthStore } from "@/store/auth.store";
+import type { ApiOrder, OrderData } from "@/types/order";
 
-// 🟢 KUNCI TYPE SAFETY: Definisikan interface murni sesuai schema response Swagger
-interface OrderDetailItem {
-  foodName: string;
-  foodImage: string;
-  quantity: number;
-  price: number;
-}
+// Import Komponen Review & Hook Mutation yang sudah kita buat
+import { ReviewModal } from "@/components/features/review/ReviewModal";
+import { useCreateReview } from "@/lib/query/useReview";
 
-interface OrderSwaggerData {
-  id: number;
-  restaurantName?: string;
-  restaurantLogo?: string;
-  foodName?: string;
-  foodImage?: string;
-  quantity?: number;
-  price?: number;
-  totalPrice?: number;
-  status?: string;
-  items?: OrderDetailItem[];
-}
+const TAB_TRIGGER_CLASS =
+  "h-[46px] rounded-full border border-[#D5D7DA] bg-white px-4 text-[15px] font-semibold text-[#0A0D12] transition-all duration-200 data-[state=active]:border-[#C12116] data-[state=active]:bg-[#FFECEC] data-[state=active]:font-bold data-[state=active]:text-[#C12116]";
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -38,151 +25,207 @@ export default function OrdersPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const { data: profileResponse } = useGetProfile();
   const storeUser = useAuthStore((state) => state.user);
-  
-  const currentUserName = profileResponse?.data?.name || storeUser?.name || "User";
-  const currentUserAvatar = profileResponse?.data?.avatar || storeUser?.avatar || undefined;
-  const { data: response, isLoading, isError } = useGetOrders({
+  const currentUserName = profileResponse?.name ?? storeUser?.name ?? "User";
+  const currentUserAvatar =
+    profileResponse?.avatar ?? storeUser?.avatar ?? undefined;
+
+  // --- 1. STATE & HOOK INTEGRASI REVIEW MODAL ---
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [selectedOrder, setSelectedOrder] = useState<OrderData | null>(null);
+
+  const { mutate: submitReview, isPending: isSubmittingReview } = useCreateReview(() => {
+    alert("Review berhasil dikirim!");
+    setIsModalOpen(false);
+    setSelectedOrder(null);
+  });
+  // ----------------------------------------------
+
+  const {
+    data: response,
+    isLoading,
+    isError,
+  } = useGetOrders({
     status: activeTab,
     limit: 10,
     page: 1,
   });
 
-  const orderList: OrderSwaggerData[] = response?.data?.orders || response?.orders || [];
+  const orderList: OrderData[] = useMemo(() => {
+    const rawOrders: ApiOrder[] = response?.data?.orders ?? [];
 
-  const filteredOrders = orderList.filter((order: OrderSwaggerData) => {
-    const item = order.items?.[0];
-    const foodName = item?.foodName || order.foodName || "";
-    const restaurantName = order.restaurantName || "";
-    return (
-      foodName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      restaurantName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  });
+    return rawOrders.map((order) => {
+      const restaurantData = order.restaurants?.[0];
+      const restaurant = restaurantData?.restaurant;
+      const item = restaurantData?.items?.[0];
+      return {
+        id: order.id, // ID internal number
+        transactionId: order.transactionId, // String UUID dari backend (Misal: "TX1715...")
+        restaurantId: restaurant?.id ?? 0,
+        restaurantName: restaurant?.name ?? "",
+        restaurantLogo: restaurant?.logo ?? "",
+        foodName: item?.menuName ?? "",
+        foodImage: item?.image ?? "",
+        quantity: item?.quantity ?? 0,
+        price: item?.price ?? 0,
+        totalPrice: order.pricing?.totalPrice ?? 0,
+        status: order.status ?? "",
+      };
+    });
+  }, [response?.data?.orders]);
+
+  const filteredOrders = useMemo(() => {
+    const keyword = searchQuery.toLowerCase();
+    return orderList.filter((order) => {
+      return (
+        order.foodName?.toLowerCase().includes(keyword) ||
+        order.restaurantName?.toLowerCase().includes(keyword)
+      );
+    });
+  }, [orderList, searchQuery]);
+
+  // --- 2. HANDLER TRIGGER SAAT TOMBOL DI CLICK ---
+  const handleReviewClick = (orderId: number) => {
+    const targetOrder = orderList.find((order) => order.id === orderId);
+    if (targetOrder) {
+      setSelectedOrder(targetOrder);
+      setIsModalOpen(true);
+    }
+  };
+
+  const handleReviewSubmit = (formData: { star: number; comment: string }) => {
+    if (!selectedOrder) return;
+
+    // Kirim payload tepat sesuai dokumentasi Swagger API lo, bro!
+    submitReview({
+      transactionId: selectedOrder.transactionId, // String UUID dari Swagger
+      restaurantId: selectedOrder.restaurantId,    // Number id restaurant
+      star: formData.star,                         // Rating bintang dari modal
+      comment: formData.comment,                   // Komentar dari modal
+    });
+  };
+  // -----------------------------------------------
 
   return (
-    <div className="w-full min-h-screen bg-[#FAFAFA] pt-[120px] md:pt-[140px] pb-20">
-      <div className="w-full max-w-[1200px] mx-auto px-4 md:px-6 flex flex-col lg:flex-row items-start gap-6 lg:gap-[32px]">
-        <UserSidebar activeMenu="orders" userName={currentUserName} userAvatar={currentUserAvatar} />
-        <div className="w-full lg:w-[928px] flex flex-col gap-4 md:gap-[24px]">
-          <div className="w-full flex items-center gap-2 h-[42px]">
-            <button 
+    <div className="min-h-screen bg-[#FAFAFA] pt-[120px] md:pt-[140px] pb-20">
+      <div className="mx-auto flex max-w-[1200px] flex-col items-start gap-6 px-4 md:px-6 lg:flex-row lg:gap-8">
+        <UserSidebar
+          activeMenu="orders"
+          userName={currentUserName}
+          userAvatar={currentUserAvatar}
+        />
+        <div className="flex w-full flex-col gap-6 lg:w-[928px]">
+          <div className="flex h-[42px] items-center gap-2">
+            <button
               onClick={() => router.push("/")}
-              className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors cursor-pointer block lg:hidden"
+              className="block cursor-pointer rounded-full p-2 transition hover:bg-slate-100 lg:hidden"
             >
-              <ChevronLeft className="w-6 h-6 text-[#0A0D12]" />
+              <ChevronLeft className="h-6 w-6 text-[#0A0D12]" />
             </button>
-            <h1 className="text-[24px] md:text-[32px] font-[800] text-[#0A0D12] tracking-tight leading-none">
+            <h1 className="text-[24px] font-extrabold text-[#0A0D12] md:text-[32px]">
               My Orders
             </h1>
           </div>
-
-          <div 
-            className="w-full bg-white rounded-[16px] p-4 md:p-[24px] flex flex-col gap-5 md:gap-[20px]"
-            style={{ boxShadow: "0px 0px 20px 0px #CBCACA40" }}
+          <div
+            className="rounded-[16px] bg-white p-4 md:p-6"
+            style={{
+              boxShadow: "0px 0px 20px 0px #CBCACA40",
+            }}
           >
-            
-            <div className="w-full max-w-[598px] h-[44px] flex items-center gap-[6px] px-[16px] rounded-full border border-[#D5D7DA] bg-white focus-within:border-[#C12116] transition-all">
-              <Search className="w-[20px] h-[20px] text-[#535862]" />
+            <div className="mb-5 flex h-[44px] w-full max-w-[598px] items-center gap-[6px] rounded-full border border-[#D5D7DA] px-4 focus-within:border-[#C12116]">
+              <Search className="h-5 w-5 text-[#535862]" />
+
               <input
-                type="text"
-                placeholder="Search orders..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-full bg-transparent border-none text-[14px] text-[#0A0D12] font-[400] placeholder-[#535862] focus:outline-none"
+                placeholder="Search orders..."
+                className="h-full w-full bg-transparent text-sm outline-none placeholder:text-[#535862]"
               />
             </div>
 
-            <Tabs 
-              value={activeTab} 
-              onValueChange={(value) => setActiveTab(value)} 
-              className="w-full max-w-[598px] flex flex-col gap-4"
-            >
-              <div className="w-full flex items-center min-h-[46px] gap-[12px] overflow-x-auto pb-2 scrollbar-none">
-                <span className="text-[16px] md:text-[18px] font-[700] text-[#0A0D12] tracking-[-3%] flex items-center h-full flex-shrink-0">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <div className="mb-5 flex items-center gap-3 overflow-x-auto">
+                <span className="shrink-0 text-[18px] font-bold text-[#0A0D12]">
                   Status
                 </span>
-                
-                <TabsList className="bg-transparent p-0 gap-[8px] md:gap-[12px] h-[46px] border-none shadow-none flex items-center flex-row flex-nowrap">
-                  <TabsTrigger
-                    value="preparing"
-                    className="px-[14px] md:px-[16px] h-[40px] md:h-[46px] rounded-[100px] text-[13px] md:text-[15px] font-[600] border border-[#D5D7DA] bg-white text-[#0A0D12] data-[state=active]:bg-[#FFECEC] data-[state=active]:border-[#C12116] data-[state=active]:text-[#C12116] data-[state=active]:font-[700] transition-all shadow-none flex items-center justify-center flex-shrink-0 cursor-pointer"
-                  >
+
+                <TabsList className="flex flex-nowrap gap-3 bg-transparent p-0">
+                  <TabsTrigger value="preparing" className={TAB_TRIGGER_CLASS}>
                     Preparing
                   </TabsTrigger>
 
-                  <TabsTrigger
-                    value="on-the-way"
-                    className="px-[14px] md:px-[16px] h-[40px] md:h-[46px] rounded-[100px] text-[13px] md:text-[15px] font-[600] border border-[#D5D7DA] bg-white text-[#0A0D12] data-[state=active]:bg-[#FFECEC] data-[state=active]:border-[#C12116] data-[state=active]:text-[#C12116] data-[state=active]:font-[700] transition-all shadow-none flex items-center justify-center flex-shrink-0 cursor-pointer"
-                  >
-                    On the Way
+                  <TabsTrigger value="on-the-way" className={TAB_TRIGGER_CLASS}>
+                    On The Way
                   </TabsTrigger>
 
-                  <TabsTrigger
-                    value="delivered"
-                    className="px-[14px] md:px-[16px] h-[40px] md:h-[46px] rounded-[100px] text-[13px] md:text-[15px] font-[600] border border-[#D5D7DA] bg-white text-[#0A0D12] data-[state=active]:bg-[#FFECEC] data-[state=active]:border-[#C12116] data-[state=active]:text-[#C12116] data-[state=active]:font-[700] transition-all shadow-none flex items-center justify-center flex-shrink-0 cursor-pointer"
-                  >
+                  <TabsTrigger value="delivered" className={TAB_TRIGGER_CLASS}>
                     Delivered
                   </TabsTrigger>
 
-                  <TabsTrigger
-                    value="done"
-                    className="px-[14px] md:px-[16px] h-[40px] md:h-[46px] rounded-[100px] text-[13px] md:text-[15px] font-[600] border border-[#D5D7DA] bg-white text-[#0A0D12] data-[state=active]:bg-[#FFECEC] data-[state=active]:border-[#C12116] data-[state=active]:text-[#C12116] data-[state=active]:font-[700] transition-all shadow-none flex items-center justify-center flex-shrink-0 cursor-pointer"
-                  >
+                  <TabsTrigger value="done" className={TAB_TRIGGER_CLASS}>
                     Done
                   </TabsTrigger>
 
-                  <TabsTrigger
-                    value="canceled"
-                    className="px-[14px] md:px-[16px] h-[40px] md:h-[46px] rounded-[100px] text-[13px] md:text-[15px] font-[600] border border-[#D5D7DA] bg-white text-[#0A0D12] data-[state=active]:bg-[#FFECEC] data-[state=active]:border-[#C12116] data-[state=active]:text-[#C12116] data-[state=active]:font-[700] transition-all shadow-none flex items-center justify-center flex-shrink-0 cursor-pointer"
-                  >
+                  <TabsTrigger value="canceled" className={TAB_TRIGGER_CLASS}>
                     Canceled
                   </TabsTrigger>
                 </TabsList>
               </div>
 
-              <div className="w-full flex flex-col gap-4 md:gap-[20px] mt-2">
+              <div className="flex flex-col gap-5">
                 {isLoading && (
-                  <div className="w-full flex justify-center items-center py-20">
+                  <div className="flex justify-center py-20">
                     <LoadingSpinner />
                   </div>
                 )}
 
                 {isError && (
-                  <div className="w-full p-6 text-center border border-red-200 bg-red-50 rounded-[16px]">
+                  <div className="rounded-[16px] border border-red-200 bg-red-50 p-6 text-center">
                     <p className="text-sm font-medium text-red-600">
-                      Gagal menarik data pesanan asli dari server backend API, bro.
+                      Gagal mengambil data order dari server.
                     </p>
                   </div>
                 )}
 
                 {!isLoading && !isError && filteredOrders.length === 0 && (
-                  <div className="w-full h-[240px] flex flex-col items-center justify-center text-center gap-2 border border-dashed border-slate-200 rounded-[12px] bg-slate-50/50">
+                  <div className="flex h-[240px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-center">
                     <div className="text-2xl">📦</div>
-                    <h3 className="text-base font-bold text-[#0A0D12] mt-1">Belum ada transaksi</h3>
-                    <p className="text-sm text-slate-400 max-w-[280px]">
-                      Tidak ada riwayat transaksi aktif terdeteksi pada kategori status ini.
+
+                    <h3 className="font-bold text-[#0A0D12]">
+                      Belum ada transaksi
+                    </h3>
+
+                    <p className="text-sm text-slate-400">
+                      Tidak ada transaksi pada status ini.
                     </p>
                   </div>
                 )}
 
-                {!isLoading && !isError && filteredOrders.length > 0 && (
+                {!isLoading &&
+                  !isError &&
                   filteredOrders.map((orderItem) => (
                     <OrderCard
                       key={orderItem.id}
                       order={orderItem}
-                      onReviewClick={(id: number) => {
-                        alert(`Buka popup modal review ulasan makanan untuk Order ID: ${id}`);
-                      }}
+                      // --- 3. PASANG HANDLERNYA DI SINI BRO ---
+                      onReviewClick={handleReviewClick}
                     />
-                  ))
-                )}
+                  ))}
               </div>
             </Tabs>
-
           </div>
         </div>
-
       </div>
+
+      {/* --- 4. RENDER MODAL-NYA DI PALING BAWAH --- */}
+      <ReviewModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedOrder(null);
+        }}
+        onSubmit={handleReviewSubmit}
+        isLoading={isSubmittingReview}
+      />
     </div>
   );
 }

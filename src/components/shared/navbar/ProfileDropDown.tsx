@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
+
 interface ProfileDropdownProps {
   isScrolled: boolean;
   user: { name?: string; email?: string; avatar?: string | null } | null;

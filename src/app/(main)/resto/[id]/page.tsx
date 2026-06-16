@@ -15,15 +15,14 @@ import MenuList from "./_components/MenuList";
 import ReviewCard from "@/components/features/resto/ReviewCard";
 import { Menu } from '../../../../types/resto';
 
+
+
 export default function RestoDetailPage() {
   const params = useParams();
   const queryClient = useQueryClient();
   const id = Array.isArray(params?.id) ? params.id[0] : params?.id || "";
-  
   const { data: resto, isLoading, isError } = useGetRestaurantDetail(id);
-  
   const addToCartMutation = useAddToCart();
-  
   const { data: cartResponse } = useGetCart();
   const rawCartData = cartResponse?.data as Record<string, unknown> | undefined;
 

@@ -8,39 +8,31 @@ import { api } from "@/lib/api/axios";
 import { ProfileSidebar } from "@/components/features/profile/ProfileComponents";
 import { ProfileApiResponse } from "@/types/profile"; 
 import { Button } from "@/components/ui/button";
-import { useAuthStore } from "@/store/auth.store"; // 💡 Import store auth lo bro
-
+import { useAuthStore } from "@/store/auth.store"; 
 export default function ProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient(); 
   const [activeTab, setActiveTab] = useState("address");
   const [localAvatarPreview, setLocalAvatarPreview] = useState<string | null>(null);
 
-  // 💡 AMBIL DATA AUTH STORE UNTUK SINKRONISASI UPDATE NAV BAR INSTAN
   const currentAuthUser = useAuthStore((state) => state.user);
-  
-  // Karena di store lo tidak ada setUser terpisah, kita panggil method utama 
-  // yang biasa lo pakai untuk menyimpan data auth (misalnya setAuth atau modifikasi state langsung)
-  // Untuk amannya tanpa memicu error "Property does not exist", kita update object reference user-nya via useAuthStore.setState
   const updateGlobalNavbarAvatar = (newAvatarUrl: string) => {
     if (currentAuthUser) {
       useAuthStore.setState({
         user: {
           ...currentAuthUser,
-          avatar: newAvatarUrl // Mengikuti nama properti 'avatar' di ProfileDropdown lo bro
+          avatar: newAvatarUrl 
         }
       });
     }
   };
 
-  // FORM STATE LOCAL
   const [formDataState, setFormDataState] = useState({
     name: "",
     email: "",
     phone: ""
   });
 
-  // 1. API QUERY: Menarik data profil user
   const { data: response, isPending, isError } = useQuery<ProfileApiResponse>({
     queryKey: ["user-profile"],
     queryFn: async () => {
@@ -50,8 +42,6 @@ export default function ProfilePage() {
   });
 
   const user = response?.data;
-
-  // Inisialisasi state form saat data pertama kali sukses mendarat
   const isFormEmpty = !formDataState.name && !formDataState.email && !formDataState.phone;
   if (user && isFormEmpty) {
     setFormDataState({
@@ -61,7 +51,6 @@ export default function ProfilePage() {
     });
   }
 
-  // 2. API MUTATION TEXT: Update Teks Profil via PUT
   const updateProfileTextMutation = useMutation({
     mutationFn: async (payload: { name: string; email: string; phone: string }) => {
       const { data } = await api.put("/api/auth/profile", payload);
@@ -69,7 +58,7 @@ export default function ProfilePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(); 
-      alert("Profile updated successfully"); // 💡 Bahasa diganti jadi formal profesional
+      alert("Profile updated successfully"); 
     },
     onError: (error: unknown) => {
       const err = error as { response?: { data?: { message?: string } } };
@@ -77,7 +66,6 @@ export default function ProfilePage() {
     }
   });
 
-  // 3. API MUTATION FILE: Upload Berkas Gambar binary via PUT
   const uploadAvatarMutation = useMutation({
     mutationFn: async (formData: FormData) => {
       const { data } = await api.put("/api/auth/profile", formData, {
@@ -87,13 +75,9 @@ export default function ProfilePage() {
     },
     onSuccess: (serverData: ProfileApiResponse) => {
       const newAvatarUrl = serverData?.data?.avatar || localAvatarPreview;
-
-      // 💡 FORCE NAVBAR UPDATE: Paksa update link avatar baru langsung ke dalam Zustand store
       if (newAvatarUrl) {
         updateGlobalNavbarAvatar(newAvatarUrl);
       }
-
-      // Update cache lokal TanStack Query
       queryClient.setQueryData<ProfileApiResponse>(["user-profile"], (oldData) => {
         if (!oldData) return oldData;
         return {
@@ -101,9 +85,8 @@ export default function ProfilePage() {
           data: { ...oldData.data, avatar: newAvatarUrl }
         };
       });
-
       queryClient.invalidateQueries(); 
-      alert("Profile updated successfully"); // 💡 Bahasa diganti jadi formal profesional
+      alert("Profile updated successfully"); 
     },
     onError: (error: unknown) => {
       const err = error as { response?: { data?: { message?: string } } };
@@ -178,7 +161,6 @@ export default function ProfilePage() {
               className="w-full h-auto min-h-[272px] md:h-[298px] bg-white rounded-[16px] p-4 md:p-[20px] flex flex-col gap-[24px]"
               style={{ boxShadow: "0px 0px 20px 0px #CBCACA40" }}
             >
-              {/* BUNDARAN INPUT FOTO PROFILE */}
               <div className="w-full h-[64px] flex items-center">
                 <label className="relative w-[64px] h-[64px] rounded-full overflow-hidden bg-slate-100 border border-slate-200 cursor-pointer group block">
                   <input 
@@ -205,7 +187,6 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              {/* INPUT FIELDS */}
               <div className="w-full flex flex-col gap-[8px] md:gap-[12px]">
                 <div className="w-full flex items-center justify-between h-[28px] md:h-[30px]">
                   <span className="text-[14px] font-[500] text-[#0A0D12] tracking-[-3%] md:text-[16px]">Name</span>
